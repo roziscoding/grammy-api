@@ -14,43 +14,49 @@ async function sendMessage(
   { broadcasts }: Repositories,
   other: { maxRetries?: number; retries?: number } = {},
 ): Promise<void> {
-  const { retries = 0, maxRetries = 3 } = other;
+  try {
+    const { retries = 0, maxRetries = 3 } = other;
 
-  if (retries >= maxRetries) {
-    queue.stop();
-    await broadcasts.updateById(broadcastId, {
-      status: "error",
-      lastErrorBody: JSON.stringify({ ok: false, message: `reached maximum retries ${maxRetries}` }),
+    if (retries >= maxRetries) {
+      queue.stop();
+      await broadcasts.updateById(broadcastId, {
+        status: "error",
+        lastErrorBody: JSON.stringify({ ok: false, message: `reached maximum retries ${maxRetries}` }),
+      });
+      return;
+    }
+
+    await broadcasts.updateById(broadcastId, { status: "running" });
+
+    const response = await fetch(url, {
+      method: "POST",
+      body: JSON.stringify({ chatId: id }),
+      headers: { "Content-Type": "application/json" },
     });
-    return;
-  }
 
-  await broadcasts.updateById(broadcastId, { status: "running" });
+    if (response.ok) {
+      await broadcasts.updateById(broadcastId, { lastFinishedId: id });
+      return;
+    }
 
-  const response = await fetch(url, {
-    method: "POST",
-    body: JSON.stringify({ chatId: id }),
-    headers: { "Content-Type": "application/json" },
-  });
+    if (response.status !== oak.Status.TooManyRequests) {
+      queue.stop();
+      await broadcasts.updateById(broadcastId, { status: "error", lastErrorBody: await response.text() });
+      return;
+    }
 
-  if (response.ok) {
-    await broadcasts.updateById(broadcastId, { lastFinishedId: id });
-    return;
-  }
+    await broadcasts.updateById(broadcastId, { status: "waiting" });
 
-  if (response.status !== oak.Status.TooManyRequests) {
+    const { parameters: { retry_after: retryAfter } } = TooManyRequestsError.parse(await response.json());
+
+    await wait(retryAfter);
+
+    return sendMessage(url, id, queue, broadcastId, repositories, { ...other, retries: retries + 1 });
+  } catch (error) {
     queue.stop();
-    await broadcasts.updateById(broadcastId, { status: "error", lastErrorBody: await response.text() });
+    await broadcasts.updateById(broadcastId, { status: "error", lastErrorBody: error.toString() });
     return;
   }
-
-  await broadcasts.updateById(broadcastId, { status: "waiting" });
-
-  const { parameters: { retry_after: retryAfter } } = TooManyRequestsError.parse(await response.json());
-
-  await wait(retryAfter);
-
-  return sendMessage(url, id, queue, broadcastId, repositories, { ...other, retries: retries + 1 });
 }
 
 export const broadcastRoute =
