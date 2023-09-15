@@ -1,5 +1,6 @@
-import { Kysely, Pool, PostgresDialect } from "../deps.ts";
+export { sql } from "../deps.ts";
 import { config } from "../config.ts";
+import { Kysely, Pool, PostgresDialect } from "../deps.ts";
 import {
   BotRepository,
   BroadcastRepository,

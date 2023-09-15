@@ -16,6 +16,7 @@
     "db:migration:new": "bash -c 'echo \"Migration name (hyphen-separated)\" && read migration && touch db/migrations/$(date +%Y%m%d%H%M%S)-$migration.ts'",
     "db:migrate": "deno run -A db/migrate.ts",
     "start": "deno run -A mod.ts",
-    "dev": "deno run -A --watch mod.ts"
+    "dev": "deno run -A --watch mod.ts",
+    "console": "deno repl -A --eval \"import { db, repositories, sql, Database } from './db/database.ts'; console.log('Connected to the database. Use **db** or **repositories** to access the database.'); const run = (query) => query.execute(db).then(console.log);\""
   }
 }
