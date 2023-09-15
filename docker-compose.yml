@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: grammy
+      POSTGRES_PASSWORD: grammy_api
+      POSTGRES_DB: grammy
+    ports:
+      - "5432:5432"
+    volumes:
+      - grammy-api-db-data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    restart: always
+    environment:
+      DB_NAME: grammy
+      DB_USER: grammy
+      DB_PASSWORD: grammy_api
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_MAX_CONNECTIONS: 10
+      DB_LOG: query,error
+      PORT: 80
+    ports:
+      - 3000:80
+
+volumes:
+  grammy-api-db-data:

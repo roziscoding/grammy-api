@@ -1,0 +1,21 @@
+{
+  "fmt": {
+    "lineWidth": 120
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-explicit-any"]
+    }
+  },
+  "imports": {
+    "kysely": "npm:kysely@^0.25.0",
+    "pg": "npm:pg",
+    "pg-pool": "npm:pg-pool"
+  },
+  "tasks": {
+    "db:migration:new": "bash -c 'echo \"Migration name (hyphen-separated)\" && read migration && touch db/migrations/$(date +%Y%m%d%H%M%S)-$migration.ts'",
+    "db:migrate": "deno run -A db/migrate.ts",
+    "start": "deno run -A mod.ts",
+    "dev": "deno run -A --watch mod.ts"
+  }
+}
