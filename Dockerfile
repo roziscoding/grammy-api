@@ -5,14 +5,11 @@ WORKDIR /app
 # Prefer not to run as root.
 USER deno
 
-ADD ./deps.ts .
-ADD ./deno.jsonc .
-ADD ./deno.lock .
+ADD ./src/deps.ts ./src/
+ADD deno.jsonc ./src/
+ADD deno.lock ./src/
+RUN deno cache -c ./src/deno.jsonc ./src/deps.ts
 
-ADD db/ /app/db
-ADD http/ /app/http
-ADD mod.ts schemas.ts config.ts ./
-
-RUN deno cache deps.ts
+ADD src/ /app/src
 
 CMD ["task", "start"]
