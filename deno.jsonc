@@ -17,6 +17,7 @@
     "db:migrate": "deno run -A src/db/migrate.ts",
     "start": "deno run -A src/mod.ts",
     "dev": "deno run -A --watch src/mod.ts",
-    "console": "deno repl -A --eval \"import { db, repositories, sql, Database } from './src/db/database.ts'; console.log('Connected to the database. Use **db** or **repositories** to access the database.'); const run = (query) => query.execute(db).then(console.log);\""
+    "console": "deno repl -A --eval \"import { db, repositories, sql, Database } from './src/db/database.ts'; console.log('Connected to the database. Use **db** or **repositories** to access the database.'); const run = (query) => query.execute(db).then(console.log);\"",
+    "check": "deno check src/mod.ts && deno lint && deno fmt --check"
   }
 }
