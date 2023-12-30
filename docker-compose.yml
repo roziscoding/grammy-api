@@ -3,7 +3,7 @@ version: "3.9"
 services:
   db:
     image: postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: grammy
       POSTGRES_PASSWORD: grammy_api
@@ -15,7 +15,7 @@ services:
 
   api:
     build: .
-    restart: always
+    restart: unless-stopped
     environment:
       DB_NAME: grammy
       DB_USER: grammy
@@ -27,6 +27,12 @@ services:
       PORT: 80
     ports:
       - 3000:80
+
+  echo:
+    build: ./echo
+    restart: unless-stopped
+    ports:
+      - 3030:80
 
 volumes:
   grammy-api-db-data:

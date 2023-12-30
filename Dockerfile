@@ -6,9 +6,9 @@ WORKDIR /app
 USER deno
 
 ADD ./src/deps.ts ./src/
-ADD deno.jsonc ./src/
-ADD deno.lock ./src/
-RUN deno cache -c ./src/deno.jsonc ./src/deps.ts
+ADD deno.jsonc ./
+ADD deno.lock ./
+RUN deno cache -c ./deno.jsonc ./src/deps.ts
 
 ADD src/ /app/src
 

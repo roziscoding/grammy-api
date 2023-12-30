@@ -8,9 +8,21 @@ export class ChatRepository extends BaseRepository<ChatTable, "chats"> {
     super(db, "chats");
   }
 
-  public findIdsByTypes(chatTypes: Chat["type"][]) {
-    return this.db.selectFrom("chats").select("id").where("type", "in", chatTypes).execute().then((rows) =>
-      rows.map((row) => row.id)
-    );
+  public findByBotAndId(botId: number, id: number) {
+    return this.baseSelect
+      .where("botId", "=", botId)
+      .where("id", "=", id)
+      .limit(1)
+      .executeTakeFirst();
+  }
+
+  public findIdsByTypes(botId: number, chatTypes: Chat["type"][], lastFinishedId?: number) {
+    let query = this.db.selectFrom("chats").select("id");
+    if (lastFinishedId) query = query.where("id", ">", lastFinishedId);
+    return query
+      .where("botId", "=", botId)
+      .where("type", "in", chatTypes)
+      .execute()
+      .then((rows) => rows.map((row) => row.id));
   }
 }

@@ -7,7 +7,9 @@ import { validateTokenMiddleware } from "./http/middleware/validate-token.ts";
 import { broadcastRoute } from "./http/routes/broadcast.ts";
 import { broadcastsRoute } from "./http/routes/broadcasts.ts";
 import { chatMembersRoute } from "./http/routes/chat-member.ts";
+import { getChatRoute } from "./http/routes/get-chat.ts";
 import { setWebhookRoute } from "./http/routes/set-webhook.ts";
+import { enqueue } from "./lib/send-message.ts";
 import { type Chat, type ChatMember, type User } from "./schemas.ts";
 
 export type AppContext = {
@@ -19,16 +21,28 @@ export type AppContext = {
   webhook: URL;
 };
 
+console.log("Resuming broadcasts...");
+const broadcasts = await repositories.broadcasts.findResumable();
+
+for (const broadcast of broadcasts) {
+  console.log(`Resuming broadcast ${broadcast.id}...`);
+  const ids = await repositories.chats.findIdsByTypes(broadcast.botId, broadcast.chatTypes, broadcast.lastFinishedId);
+  enqueue(broadcast, ids, broadcast.botWebhook);
+}
+console.log("Done...");
+
 const app = new oak.Application();
 
 app.use(errorMiddleware);
 
 const router = new oak.Router<AppContext>();
+const getBot = getBotMiddleware(repositories);
 
 router.post("/setWebhook", validateTokenMiddleware, setWebhookRoute(repositories));
-router.post("/chatMember", getBotMiddleware(repositories), chatMembersRoute(repositories, db));
-router.get("/broadcasts", getBotMiddleware(repositories), broadcastsRoute(repositories));
-router.post("/broadcast", getBotMiddleware(repositories), broadcastRoute(repositories));
+router.post("/chatMember", getBot, chatMembersRoute(repositories, db));
+router.get("/broadcasts", getBot, broadcastsRoute(repositories));
+router.post("/broadcast", getBot, broadcastRoute(repositories));
+router.get("/chats/:id", getBot, getChatRoute(repositories));
 
 app.use(router.routes());
 app.use(router.allowedMethods());

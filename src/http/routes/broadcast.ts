@@ -1,63 +1,8 @@
-import { Repositories, repositories } from "../../db/database.ts";
-import { oak, q, z } from "../../deps.ts";
+import { Repositories } from "../../db/database.ts";
+import { oak, z } from "../../deps.ts";
+import { enqueue } from "../../lib/send-message.ts";
 import { AppContext } from "../../mod.ts";
-import { TooManyRequestsError } from "../../schemas.ts";
 import { useRequestBody } from "../utils.ts";
-
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function sendMessage(
-  url: string,
-  id: number,
-  queue: q.Queue,
-  broadcastId: number,
-  { broadcasts }: Repositories,
-  other: { maxRetries?: number; retries?: number } = {},
-): Promise<void> {
-  try {
-    const { retries = 0, maxRetries = 3 } = other;
-
-    if (retries >= maxRetries) {
-      queue.stop();
-      await broadcasts.updateById(broadcastId, {
-        status: "error",
-        lastErrorBody: JSON.stringify({ ok: false, message: `reached maximum retries ${maxRetries}` }),
-      });
-      return;
-    }
-
-    await broadcasts.updateById(broadcastId, { status: "running" });
-
-    const response = await fetch(url, {
-      method: "POST",
-      body: JSON.stringify({ chatId: id }),
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (response.ok) {
-      await broadcasts.updateById(broadcastId, { lastFinishedId: id });
-      return;
-    }
-
-    if (response.status !== oak.Status.TooManyRequests) {
-      queue.stop();
-      await broadcasts.updateById(broadcastId, { status: "error", lastErrorBody: await response.text() });
-      return;
-    }
-
-    await broadcasts.updateById(broadcastId, { status: "waiting" });
-
-    const { parameters: { retry_after: retryAfter } } = TooManyRequestsError.parse(await response.json());
-
-    await wait(retryAfter);
-
-    return sendMessage(url, id, queue, broadcastId, repositories, { ...other, retries: retries + 1 });
-  } catch (error) {
-    queue.stop();
-    await broadcasts.updateById(broadcastId, { status: "error", lastErrorBody: error.toString() });
-    return;
-  }
-}
 
 export const broadcastRoute =
   (repositories: Repositories): oak.RouterMiddleware<string, any, AppContext> => async (ctx) => {
@@ -72,26 +17,17 @@ export const broadcastRoute =
       ctx,
     );
 
-    const ids = await repositories.chats.findIdsByTypes(chatTypes);
+    const ids = await repositories.chats.findIdsByTypes(ctx.state.bot.id, chatTypes);
 
     const broadcast = await repositories.broadcasts.insert({
       botId: ctx.state.bot.id,
       lastFinishedId: 0,
       status: "idle",
       lastErrorBody: "",
+      chatTypes,
     });
 
-    const queue = new q.Queue(false);
-
-    queue.push(() => repositories.broadcasts.markStarted(broadcast.id));
-
-    for (const id of ids) {
-      queue.push(() => sendMessage(ctx.state.bot.webhook, id, queue, broadcast.id, repositories, { retries: 0 }));
-    }
-
-    queue.push(() => repositories.broadcasts.markFinished(broadcast.id));
-
-    queue.start();
+    enqueue(broadcast, ids, ctx.state.webhook.toString());
 
     ctx.response.status = oak.Status.Accepted;
     ctx.response.body = { ok: true, broadcast: { ...broadcast, ids: ids.length } };

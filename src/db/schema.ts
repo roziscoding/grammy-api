@@ -48,11 +48,13 @@ export interface BroadcastTable {
   id: Generated<number>;
   lastFinishedId: number;
   status: "running" | "error" | "waiting" | "done" | "idle";
+  chatTypes: ChatTable["type"][];
   lastErrorBody: string;
   botId: number;
   createdAt: Generated<Date>;
   startedAt: Date | null;
   finishedAt: Date | null;
+  waitUntil: Date | null;
 }
 
 export type BroadcastRecord = Selectable<BroadcastTable>;

@@ -7,20 +7,8 @@ export class BroadcastRepository extends BaseRepository<BroadcastTable, "broadca
     super(db, "broadcasts");
   }
 
-  private get select() {
-    return this.db.selectFrom("broadcasts").select([
-      "id",
-      "lastFinishedId",
-      "status",
-      "lastErrorBody",
-      "createdAt",
-      "startedAt",
-      "finishedAt",
-    ]);
-  }
-
   public findByBotId(botId: number) {
-    return this.select.where("botId", "=", botId).execute();
+    return this.baseSelect.where("botId", "=", botId).execute();
   }
 
   public markStarted(id: number) {
@@ -33,5 +21,25 @@ export class BroadcastRepository extends BaseRepository<BroadcastTable, "broadca
     return this.db.updateTable("broadcasts")
       .set((eb) => ({ status: "done", finishedAt: eb.fn("now", []) }))
       .where("id", "=", id).execute();
+  }
+
+  public findResumable() {
+    return this.db.selectFrom("broadcasts")
+      .innerJoin("bots", "botId", "bots.id")
+      .select([
+        "broadcasts.id",
+        "chatTypes",
+        "createdAt",
+        "startedAt",
+        "finishedAt",
+        "status",
+        "broadcasts.botId",
+        "lastFinishedId",
+        "lastErrorBody",
+        "waitUntil",
+        "bots.webhook as botWebhook",
+      ])
+      .where("status", "in", ["waiting", "idle", "running"])
+      .execute();
   }
 }
